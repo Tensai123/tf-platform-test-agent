@@ -32,8 +32,8 @@ log() { printf '%s\n' "$*" >&2; }
 refresher_pid=""
 wif_dir=""
 cleanup() {
-  [[ -n "$refresher_pid" ]] && kill "$refresher_pid" 2>/dev/null || true
-  [[ -n "$wif_dir" ]] && rm -rf "$wif_dir"
+  if [[ -n "$refresher_pid" ]]; then kill "$refresher_pid" 2>/dev/null || true; fi
+  if [[ -n "$wif_dir" ]]; then rm -rf "$wif_dir"; fi
 }
 trap cleanup EXIT
 

@@ -47,7 +47,9 @@ printf '%s' "$title" >"$run/title"; printf '%s' "$body" >"$run/body"
 
 "$run/trusted/ci/run-agent.sh" "$run/work" "$out/prompt.txt" "$out" || echo "agent exited non-zero" >&2
 
-if [[ -x "$run/trusted/ci/verify.sh" ]]; then
-  "$run/trusted/ci/verify.sh" "$run/trusted" "$head_sha" "$out" || echo "verify reported problems" >&2
-fi
+# Verify on its own clean checkout, as the CI job does.
+git clone -q --no-local "$repo" "$run/pr"
+git -C "$run/pr" checkout -q --detach "$head_sha"
+"$run/trusted/ci/verify.sh" "$run/trusted" "$run/pr" "$out" "$out/verify" ||
+  echo "verify: tests would not be pushed" >&2
 echo "results: $out" >&2
