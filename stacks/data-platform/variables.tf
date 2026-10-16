@@ -41,3 +41,9 @@ variable "public_access_enabled" {
   type        = bool
   default     = false
 }
+
+variable "log_daily_quota_gb" {
+  description = "Daily ingestion cap of the Log Analytics workspace in GB. -1 means no cap."
+  type        = number
+  default     = -1
+}

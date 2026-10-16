@@ -3,6 +3,7 @@ tenant_id             = "00000000-0000-0000-0000-000000000000"
 environment           = "dev"
 vnet_address_space    = ["10.20.0.0/16"]
 public_access_enabled = true
+log_daily_quota_gb    = 1
 
 data_lakes = {
   raw     = { containers = ["landing", "bronze"] }
