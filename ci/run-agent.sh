@@ -17,7 +17,7 @@
 set -euo pipefail
 
 work="$(cd "${1:?usage: run-agent.sh <work-dir> <prompt-file> <out-dir>}" && pwd)"
-prompt_file="${2:?}"
+prompt_file="$(cd "$(dirname "${2:?}")" && pwd)/$(basename "$2")"
 out="${3:?}"
 mkdir -p "$out"
 out="$(cd "$out" && pwd)"
