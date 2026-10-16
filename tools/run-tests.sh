@@ -26,6 +26,18 @@ if ! compgen -G "$src/$module/tests/*.tftest.hcl" >/dev/null; then
   exit 2
 fi
 
+# Refuse, before the networked init step, test files that would download remote
+# helper modules or configure real providers; verify rejects them anyway, but the
+# download itself must not happen.
+if ! lint="$(python3 -I "$TOOLS_DIR/lint_tests.py" "$src" "$module")"; then
+  blocking="$(jq -c '[.problems[] | select(.rule == "remote-helper-module" or .rule == "provider-block")]' <<<"$lint")"
+  if [[ "$blocking" != "[]" ]]; then
+    jq -n --arg module "$module" --argjson problems "$blocking" \
+      '{module: $module, status: "refused", detail: "test files reference remote modules or real providers", problems: $problems}'
+    exit 2
+  fi
+fi
+
 work="$(make_workcopy "$src")"
 trap 'rm -rf "$work"' EXIT
 

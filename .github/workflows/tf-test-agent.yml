@@ -19,8 +19,13 @@ on:
 
 permissions: {}
 
+# A new push supersedes a running review. A label event other than the full-scan
+# label gets a group of its own, or adding any label would cancel a running review.
 concurrency:
-  group: tf-test-agent-${{ github.event.pull_request.number }}
+  group: >-
+    tf-test-agent-${{ github.event.pull_request.number }}${{
+      github.event.action == 'labeled' && github.event.label.name != 'agent:full-scan'
+      && format('-label-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:
