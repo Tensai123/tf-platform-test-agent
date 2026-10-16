@@ -38,6 +38,19 @@ terraform validate
 
 The stack has no backend configured. A real deployment would need one, and credentials for it.
 
+## Test agent
+
+Pull requests that change Terraform code are reviewed by `tf-test-agent`. It writes
+or updates `terraform test` files for the changed modules, verifies them, and posts
+its findings on the pull request. Label a pull request `agent:full-scan` to review
+every module. See [SOLUTION.md](SOLUTION.md) for how it works.
+
+To reproduce a run locally with your Claude Code login:
+
+```sh
+ci/local-run.sh origin/main HEAD
+```
+
 ## Conventions
 
 - Resource files in a stack and modules use `main.tf`, `variables.tf`, `outputs.tf` and `versions.tf`.
