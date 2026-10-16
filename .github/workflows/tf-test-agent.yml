@@ -89,7 +89,7 @@ jobs:
       AGENT_MODE: ${{ needs.detect.outputs.mode }}
       AGENT_MODEL: ${{ needs.detect.outputs.mode == 'all' && vars.AGENT_MODEL_FULL_SCAN || vars.AGENT_MODEL || 'sonnet' }}
       AGENT_MAX_TURNS: ${{ needs.detect.outputs.mode == 'all' && '200' || '80' }}
-      AGENT_MAX_BUDGET_USD: ${{ needs.detect.outputs.mode == 'all' && '15' || '5' }}
+      AGENT_MAX_BUDGET_USD: ${{ needs.detect.outputs.mode == 'all' && '8' || '3' }}
       # Federation identifiers are not credentials; they live in repository variables.
       ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
       ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
