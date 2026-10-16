@@ -18,6 +18,10 @@ set -euo pipefail
 pr="$(cd "${1:?usage: prepare-workdir.sh <pr-checkout> <trusted-checkout>}" && pwd)"
 trusted="$(cd "${2:?}" && pwd)"
 removed_out="${3:-/dev/null}"
+if [[ "$removed_out" != /dev/null ]]; then
+  mkdir -p "$(dirname "$removed_out")"
+  removed_out="$(cd "$(dirname "$removed_out")" && pwd)/$(basename "$removed_out")"
+fi
 TRUSTED_PATHS=(.claude tools ci .tflint.hcl)
 
 for p in .claude/agents/tf-test-agent.md tools/lib.sh ci/report.schema.json; do
