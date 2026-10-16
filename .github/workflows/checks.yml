@@ -1,0 +1,42 @@
+# Deterministic Terraform checks. No LLM and no secrets: this is the check to make
+# required in branch protection. The test agent dispatches it after it pushes tests,
+# because a push made with GITHUB_TOKEN does not trigger workflows on its own.
+name: terraform-checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: terraform-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    name: baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: fmt, validate, test, scan (sandboxed)
+        run: ci/baseline.sh "$RUNNER_TEMP/baseline"
+
+      - name: Job summary
+        if: always()
+        run: cat "$RUNNER_TEMP/baseline/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: baseline
+          path: ${{ runner.temp }}/baseline/
+          retention-days: 14

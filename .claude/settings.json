@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Edit(/modules/*/tests/*.tftest.hcl)",
+      "Write(/modules/*/tests/*.tftest.hcl)",
+      "Edit(/stacks/*/tests/*.tftest.hcl)",
+      "Write(/stacks/*/tests/*.tftest.hcl)",
+      "Bash(tools/changed-modules.sh *)",
+      "Bash(tools/pr-diff.sh)",
+      "Bash(tools/pr-diff.sh *)",
+      "Bash(tools/run-tests.sh *)",
+      "Bash(tools/lint-tests.sh *)",
+      "Bash(tools/mutate.sh *)",
+      "Bash(tools/scan.sh)",
+      "Bash(tools/scan.sh *)"
+    ],
+    "deny": [
+      "WebFetch",
+      "WebSearch",
+      "Edit(/.github/**)",
+      "Write(/.github/**)",
+      "Edit(/.claude/**)",
+      "Write(/.claude/**)",
+      "Edit(/tools/**)",
+      "Write(/tools/**)",
+      "Edit(/ci/**)",
+      "Write(/ci/**)",
+      "Bash(terraform *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(docker *)",
+      "Bash(git push *)"
+    ]
+  }
+}
