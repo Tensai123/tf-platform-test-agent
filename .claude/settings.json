@@ -30,7 +30,8 @@
       "Bash(curl *)",
       "Bash(wget *)",
       "Bash(docker *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(*--src*)"
     ]
   }
 }

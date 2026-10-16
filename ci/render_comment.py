@@ -28,6 +28,7 @@ def safe(text, limit=800):
     text = re.sub(r"@(?=[A-Za-z0-9_-])", "@​", text)        # no mentions
     text = text.replace("](", "]​(").replace("![", "!​[")  # no links/images
     text = re.sub(r"(?i)\b(https?)://", r"\1[:]//", text)             # no autolinks
+    text = text.replace("|", "\\|")                                   # keep tables intact
     return text.replace("\n", " ").strip()
 
 
@@ -70,6 +71,8 @@ def main():
     elif verified.get("patch", {}).get("files"):
         out.append("⚠️ **Tests were written but not pushed: independent verification failed.** "
                    "Details below.")
+    elif not verified.get("ok", False):
+        out.append("❌ **Tests of the changed modules fail.** No test changes were made; details below.")
     else:
         out.append("ℹ️ **No test changes were needed** for this change.")
     out.append("")

@@ -42,7 +42,16 @@ pushed="-"
 if ! $stale && jq -e .push "$verified" >/dev/null; then
   git clone -q --depth 1 --branch "$head_ref" --no-tags "https://github.com/$repo.git" "$work/pr"
   cd "$work/pr"
-  if [[ "$(git rev-parse HEAD)" == "$head_sha" ]] && git apply --check "$agent/tests.patch"; then
+  # The write job does not take verify's word for the patch scope: check it again.
+  allowed_re='^(modules|stacks)/[A-Za-z0-9._-]+/tests/[A-Za-z0-9._-]+\.tftest\.hcl$'
+  scope_ok=true
+  while IFS=$'\t' read -r _ _ path; do
+    [[ "$path" =~ $allowed_re ]] || { log "patch touches $path; refusing to push"; scope_ok=false; }
+  done < <(git apply --numstat "$agent/tests.patch")
+  if git apply --summary "$agent/tests.patch" | grep -qE '^ *(delete|rename|copy) |mode change'; then
+    log "patch deletes, renames or changes modes; refusing to push"; scope_ok=false
+  fi
+  if $scope_ok && [[ "$(git rev-parse HEAD)" == "$head_sha" ]] && git apply --check "$agent/tests.patch"; then
     git apply "$agent/tests.patch"
     mapfile -t files < <(jq -r '.patch.files[]' "$verified")
     git add -- "${files[@]}"
@@ -73,15 +82,17 @@ python3 -I "$ci_dir/render_comment.py" "$agent" "$verify" "$pushed" "$run_url" "
 # --- 3. Status ---------------------------------------------------------------------------
 if [[ ! -s "$agent/report.json" ]]; then
   state=error description="agent did not produce a report"
-elif jq -e '.ok' "$verified" >/dev/null || ! jq -e '.patch.files | length > 0' "$verified" >/dev/null; then
+elif jq -e '.ok' "$verified" >/dev/null; then
   if jq -e '.report.valid' "$verified" >/dev/null; then
     state=success
     description="$(jq -r '"tests verified; \(.findings | length) finding(s), \([.findings[] | select(.severity == "high")] | length) high"' "$agent/report.json")"
   else
     state=failure description="agent report failed validation"
   fi
-else
+elif jq -e '.patch.files | length > 0' "$verified" >/dev/null; then
   state=failure description="generated tests failed verification; not pushed"
+else
+  state=failure description="tests of the changed modules fail"
 fi
 gh api -X POST "repos/$repo/statuses/$final_sha" -f state="$state" -f context="tf-test-agent" \
   -f description="${description:0:139}" -f target_url="$run_url" >/dev/null
