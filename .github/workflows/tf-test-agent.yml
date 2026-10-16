@@ -160,6 +160,9 @@ jobs:
           path: agent-out/
           retention-days: 14
           if-no-files-found: ignore
+          # A re-run uploads again under the same name; keep only the newest, or a
+          # later job downloads a previous attempt's output.
+          overwrite: true
 
   verify:
     needs: [detect, agent]
@@ -198,6 +201,9 @@ jobs:
           path: verify-out/
           retention-days: 14
           if-no-files-found: ignore
+          # A re-run uploads again under the same name; keep only the newest, or a
+          # later job downloads a previous attempt's output.
+          overwrite: true
 
   publish:
     needs: [detect, agent, verify]
