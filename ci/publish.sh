@@ -19,6 +19,7 @@ set -euo pipefail
 agent="${1:?usage: publish.sh <agent-out> <verify-out>}"
 verify="${2:?}"
 mkdir -p "$agent" "$verify"
+agent="$(cd "$agent" && pwd)" verify="$(cd "$verify" && pwd)"
 ci_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="${GITHUB_REPOSITORY:?}" pr="${PR_NUMBER:?}" head_sha="${PR_HEAD_SHA:?}" head_ref="${PR_HEAD_REF:?}"
 run_url="${RUN_URL:-}"
