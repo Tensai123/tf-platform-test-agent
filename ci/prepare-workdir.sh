@@ -47,7 +47,9 @@ for p in "${TRUSTED_PATHS[@]}"; do
   cp -a "$trusted/$p" "$pr/$p"
 done
 
-git add -A
+# Stage only what this script changed; anything else in the tree stays as checked out.
+git add -A -- "${TRUSTED_PATHS[@]}"
+[[ -n "$removed" ]] && printf '%s\n' "$removed" | xargs -r git add -A --
 git -c user.name=tf-test-agent -c user.email=tf-test-agent@localhost \
   commit -q --no-verify --allow-empty -m "agent workdir: trusted configuration from base"
 echo "workdir ready: $pr" >&2

@@ -97,7 +97,7 @@ rc=0
       --output-format json \
       --max-turns "${AGENT_MAX_TURNS:-60}" \
       --max-budget-usd "${AGENT_MAX_BUDGET_USD:-5}" \
-      "${model_args[@]}"
+      "${model_args[@]}" </dev/null
 ) >"$out/claude.json" 2>"$out/claude.stderr" || rc=$?
 
 if ! jq -e . "$out/claude.json" >/dev/null 2>&1; then
