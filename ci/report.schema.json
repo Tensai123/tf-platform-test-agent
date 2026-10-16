@@ -1,26 +1,54 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "tf-test-agent report",
   "type": "object",
   "additionalProperties": false,
-  "required": ["summary", "modules", "findings"],
+  "required": [
+    "summary",
+    "modules",
+    "findings"
+  ],
   "properties": {
-    "summary": { "type": "string", "maxLength": 1500 },
+    "summary": {
+      "type": "string",
+      "maxLength": 1500
+    },
     "modules": {
       "type": "array",
       "maxItems": 50,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "decision", "reason", "test_files", "runs", "test_status"],
+        "required": [
+          "path",
+          "decision",
+          "reason",
+          "test_files",
+          "runs",
+          "test_status"
+        ],
         "properties": {
-          "path": { "type": "string", "pattern": "^(modules|stacks)/[A-Za-z0-9._-]+$" },
-          "decision": { "enum": ["create", "update", "skip"] },
-          "reason": { "type": "string", "maxLength": 600 },
+          "path": {
+            "type": "string",
+            "pattern": "^(modules|stacks)/[A-Za-z0-9._-]+$"
+          },
+          "decision": {
+            "enum": [
+              "create",
+              "update",
+              "skip"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 600
+          },
           "test_files": {
             "type": "array",
             "maxItems": 20,
-            "items": { "type": "string", "pattern": "^(modules|stacks)/[A-Za-z0-9._-]+/tests/[A-Za-z0-9._-]+\\.tftest\\.hcl$" }
+            "items": {
+              "type": "string",
+              "pattern": "^(modules|stacks)/[A-Za-z0-9._-]+/tests/[A-Za-z0-9._-]+\\.tftest\\.hcl$"
+            }
           },
           "runs": {
             "type": "array",
@@ -28,33 +56,76 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "change", "checks"],
+              "required": [
+                "name",
+                "change",
+                "checks"
+              ],
               "properties": {
-                "name": { "type": "string", "pattern": "^[a-z0-9_]{1,80}$" },
-                "change": { "enum": ["added", "updated"] },
-                "checks": { "type": "string", "maxLength": 300 }
+                "name": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9_]{1,80}$"
+                },
+                "change": {
+                  "enum": [
+                    "added",
+                    "updated"
+                  ]
+                },
+                "checks": {
+                  "type": "string",
+                  "maxLength": 300
+                }
               }
             }
           },
-          "test_status": { "enum": ["pass", "fail", "error", "not_run"] },
-          "unresolved": { "type": "string", "maxLength": 800 },
+          "test_status": {
+            "enum": [
+              "pass",
+              "fail",
+              "error",
+              "not_run"
+            ]
+          },
+          "unresolved": {
+            "type": "string",
+            "maxLength": 800
+          },
           "mutation": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["killed", "survived"],
+            "required": [
+              "killed",
+              "survived"
+            ],
             "properties": {
-              "killed": { "type": "integer", "minimum": 0 },
-              "survived": { "type": "integer", "minimum": 0 },
+              "killed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "survived": {
+                "type": "integer",
+                "minimum": 0
+              },
               "accepted_survivors": {
                 "type": "array",
                 "maxItems": 50,
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["mutant", "reason"],
+                  "required": [
+                    "mutant",
+                    "reason"
+                  ],
                   "properties": {
-                    "mutant": { "type": "string", "maxLength": 200 },
-                    "reason": { "type": "string", "maxLength": 300 }
+                    "mutant": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "reason": {
+                      "type": "string",
+                      "maxLength": 300
+                    }
                   }
                 }
               }
@@ -69,18 +140,63 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["severity", "title", "file", "line", "source", "why", "recommendation", "in_diff"],
+        "required": [
+          "severity",
+          "title",
+          "file",
+          "line",
+          "source",
+          "why",
+          "recommendation",
+          "in_diff"
+        ],
         "properties": {
-          "severity": { "enum": ["high", "medium", "low", "info"] },
-          "title": { "type": "string", "maxLength": 140 },
-          "file": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$", "maxLength": 200 },
-          "line": { "type": "integer", "minimum": 1 },
-          "source": { "enum": ["agent", "scanner"] },
-          "rule_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,80}$" },
-          "why": { "type": "string", "maxLength": 800 },
-          "recommendation": { "type": "string", "maxLength": 600 },
-          "evidence": { "type": "string", "maxLength": 600 },
-          "in_diff": { "type": "boolean" }
+          "severity": {
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "info"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 140
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._/-]+$",
+            "maxLength": 200
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "source": {
+            "enum": [
+              "agent",
+              "scanner"
+            ]
+          },
+          "rule_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]{1,80}$"
+          },
+          "why": {
+            "type": "string",
+            "maxLength": 800
+          },
+          "recommendation": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "in_diff": {
+            "type": "boolean"
+          }
         }
       }
     },
@@ -90,10 +206,19 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["rule_id", "reason"],
+        "required": [
+          "rule_id",
+          "reason"
+        ],
         "properties": {
-          "rule_id": { "type": "string", "pattern": "^[A-Za-z0-9_.-]{1,80}$" },
-          "reason": { "type": "string", "maxLength": 300 }
+          "rule_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]{1,80}$"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300
+          }
         }
       }
     }

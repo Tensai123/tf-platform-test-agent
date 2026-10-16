@@ -75,6 +75,12 @@ fi
 model_args=()
 [[ -n "${AGENT_MODEL:-}" ]] && model_args=(--model "$AGENT_MODEL")
 
+# Project allow rules are ignored in an untrusted folder under `claude -p`; pass the
+# trusted rules (prepare-workdir.sh put the base branch's settings in place) as flags.
+settings="$work/.claude/settings.json"
+mapfile -t allow < <(jq -r '.permissions.allow[]' "$settings")
+mapfile -t deny < <(jq -r '.permissions.deny[]' "$settings")
+
 rc=0
 (
   cd "$work"
@@ -85,6 +91,8 @@ rc=0
       --agent tf-test-agent \
       --setting-sources project \
       --permission-mode dontAsk \
+      --allowedTools "${allow[@]}" \
+      --disallowedTools "${deny[@]}" \
       --json-schema "$(cat "$ci_dir/report.schema.json")" \
       --output-format json \
       --max-turns "${AGENT_MAX_TURNS:-60}" \
