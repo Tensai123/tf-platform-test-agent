@@ -7,7 +7,7 @@
 #   tools/pr-diff.sh --stat
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 base="${PR_BASE_SHA:-}" head="${PR_HEAD_SHA:-HEAD}"
 [[ -n "$base" ]] || base="$(git merge-base origin/main HEAD 2>/dev/null)" ||

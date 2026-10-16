@@ -1,0 +1,227 @@
+# Terraform test agent for pull requests.
+#
+#   detect   which modules changed; whether the agent should run          (read)
+#   agent    the LLM writes/updates tests and reviews, in a sandboxed      (read + LLM)
+#            workdir with agent config from the base branch
+#   verify   re-checks everything the agent produced, without the LLM     (read)
+#   publish  pushes verified tests, comments, status; runs no PR code      (write)
+#
+# Trust model: the job that holds the LLM credential cannot write to the repository,
+# the jobs that run pull request code (agent, verify) do so in a container with no
+# network and no credentials, and the only job with write access runs neither the
+# LLM nor pull request code. Fork pull requests get no secrets from GitHub; the agent
+# is skipped for them and terraform-checks still runs.
+name: tf-test-agent
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+permissions: {}
+
+concurrency:
+  group: tf-test-agent-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  FULL_SCAN_LABEL: "agent:full-scan"
+
+jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    # Same-repository PRs only (forks get no secrets); no drafts; a label event only
+    # when it is the full-scan label.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !github.event.pull_request.draft &&
+      (github.event.action != 'labeled' || github.event.label.name == 'agent:full-scan')
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      mode: ${{ steps.decide.outputs.mode }}
+    steps:
+      - name: Checkout base (trusted tools)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Checkout pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide
+        id: decide
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          FULL_SCAN: ${{ contains(github.event.pull_request.labels.*.name, 'agent:full-scan') }}
+        run: |
+          if [[ ! -f trusted/.claude/agents/tf-test-agent.md ]]; then
+            echo "The base branch has no agent yet; skipping." >> "$GITHUB_STEP_SUMMARY"
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          mode="diff"; [[ "$FULL_SCAN" == true ]] && mode="all"
+          if [[ "$mode" == all ]]; then
+            REPO_ROOT="$PWD/pr" trusted/tools/changed-modules.sh --all > changes.json
+          else
+            REPO_ROOT="$PWD/pr" trusted/tools/changed-modules.sh "$BASE_SHA" "$HEAD_SHA" > changes.json
+          fi
+          count="$(jq '.modules | length' changes.json)"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "run=$([[ $count -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          { echo "### Modules in scope ($mode)"; jq -r '.modules[] | "- `\(.path)`"' changes.json; } >> "$GITHUB_STEP_SUMMARY"
+
+  agent:
+    needs: detect
+    if: needs.detect.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      id-token: write # workload identity federation to the Claude API; nothing else
+    env:
+      AGENT_MODE: ${{ needs.detect.outputs.mode }}
+      AGENT_MODEL: ${{ needs.detect.outputs.mode == 'all' && vars.AGENT_MODEL_FULL_SCAN || vars.AGENT_MODEL || 'sonnet' }}
+      AGENT_MAX_TURNS: ${{ needs.detect.outputs.mode == 'all' && '200' || '80' }}
+      AGENT_MAX_BUDGET_USD: ${{ needs.detect.outputs.mode == 'all' && '15' || '5' }}
+      # Federation identifiers are not credentials; they live in repository variables.
+      ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+      ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+      ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+      ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+      # Fallback only, when federation is not available. Empty when unset.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout base (trusted agent config and tools)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Checkout pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: work
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Claude Code (pinned)
+        run: |
+          source trusted/tools/versions.env
+          npm install --global --no-fund --no-audit "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+          claude --version
+      - name: Prepare workdir
+        run: |
+          mkdir -p agent-out
+          trusted/ci/prepare-workdir.sh work trusted agent-out/removed-config.txt
+      - name: Build prompt
+        env:
+          REMOVED_CONFIG: agent-out/removed-config.txt
+        run: |
+          # Title and body are read from the event file, never interpolated into the script.
+          jq -r '.pull_request.title // ""' "$GITHUB_EVENT_PATH" > pr-title.txt
+          jq -r '.pull_request.body // ""' "$GITHUB_EVENT_PATH" > pr-body.txt
+          if [[ "$AGENT_MODE" == all ]]; then
+            (cd work && tools/changed-modules.sh --all) > agent-out/changes.json
+          else
+            (cd work && tools/changed-modules.sh "$PR_BASE_SHA" "$PR_HEAD_SHA") > agent-out/changes.json
+          fi
+          trusted/ci/build-prompt.sh agent-out/changes.json pr-title.txt pr-body.txt > agent-out/prompt.txt
+      - name: Run agent
+        run: trusted/ci/run-agent.sh work agent-out/prompt.txt agent-out
+      - name: Job summary
+        if: always()
+        run: |
+          [[ -s agent-out/run-meta.json ]] || exit 0
+          jq -r '"### Agent run\n\n| | |\n|---|---|\n| result | \(.subtype) |\n| turns | \(.num_turns) |\n| cost | $\(.total_cost_usd) |\n| permission denials | \(.permission_denials | length) |"' \
+            agent-out/run-meta.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: agent-out
+          path: agent-out/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  verify:
+    needs: [detect, agent]
+    if: always() && needs.detect.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout base (trusted tools)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Checkout pull request
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: agent-out
+          path: agent-out
+      - name: Verify (no LLM, sandboxed)
+        run: |
+          mkdir -p agent-out
+          # The outcome is data for publish; a failed verification is reported, not thrown.
+          trusted/ci/verify.sh trusted pr agent-out verify-out || true
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: verify-out
+          path: verify-out/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  publish:
+    needs: [detect, agent, verify]
+    if: always() && needs.detect.outputs.run == 'true' && needs.verify.result != 'cancelled'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write       # push verified test files to the PR branch
+      pull-requests: write  # summary comment and inline review comments
+      statuses: write       # tf-test-agent commit status
+      actions: write        # dispatch terraform-checks for the pushed commit
+    steps:
+      - name: Checkout base (trusted publish scripts only)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: agent-out
+          path: agent-out
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: verify-out
+          path: verify-out
+      - name: Publish to the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: trusted/ci/publish.sh agent-out verify-out

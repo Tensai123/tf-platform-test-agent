@@ -13,7 +13,7 @@
 # under tests/; `other` = anything else (scripts, docs, lock file).
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 if [[ "${1:-}" == "--all" ]]; then
   mode=all base="" head=""

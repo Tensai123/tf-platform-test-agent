@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers for the tools in this directory. Source it, do not execute it.
 #
 # Everything that runs Terraform (or a scanner) on repository code goes through

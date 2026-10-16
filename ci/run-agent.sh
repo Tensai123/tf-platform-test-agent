@@ -122,7 +122,8 @@ allowed_re='^(modules|stacks)/[A-Za-z0-9._-]+/tests/[A-Za-z0-9._-]+\.tftest\.hcl
 grep -E "$allowed_re" "$out/changed-files.txt" >"$out/allowed-files.txt" || true
 grep -vE "$allowed_re" "$out/changed-files.txt" >"$out/rejected-files.txt" || true
 if [[ -s "$out/allowed-files.txt" ]]; then
-  git diff --no-ext-diff --no-textconv -- $(cat "$out/allowed-files.txt") >"$out/tests.patch"
+  mapfile -t allowed_files <"$out/allowed-files.txt"
+  git diff --no-ext-diff --no-textconv -- "${allowed_files[@]}" >"$out/tests.patch"
 else
   : >"$out/tests.patch"
 fi
