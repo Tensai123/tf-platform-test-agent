@@ -90,6 +90,15 @@ wired through the stack with a 1 GB/day cap in dev).
 
 23 turns, 48 s, $0.15 (Sonnet).
 
+A second, control run happened on the same PR after the review fixes (#8) were
+merged and the branch was updated. The agent judged the existing tests sufficient
+and changed nothing (mutation still 4/4). Its findings partly differed from the
+first run's, which shows LLM non-determinism. The summary comment is updated in
+place, so it now shows the control run; the first run's version is in the
+comment's edit history ("edited"). Inline comments accumulate and each is posted
+once: 3 from the first run and 2 new ones, plus one repeated finding that was
+deduplicated.
+
 **Full-coverage pass: [#2](https://github.com/Tensai123/tf-platform-test-agent/pull/2)**
 (label `agent:full-scan`): tests for the 5 modules and the stack that had none,
 strengthened tests for the 3 that had some; 56 runs, all passing; mutation scores
