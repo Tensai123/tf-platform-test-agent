@@ -21,6 +21,7 @@ module "log_analytics" {
   name                = "log-${local.prefix}"
   resource_group_name = azurerm_resource_group.this.name
   location            = var.location
+  daily_quota_gb      = var.log_daily_quota_gb
   tags                = local.tags
 }
 
